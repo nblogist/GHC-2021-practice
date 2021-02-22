@@ -19,11 +19,11 @@ fn get_filename() -> Result<String, Box<dyn Error>> {
     let file_number: u16 = args[1].parse()?;
 
     match file_number {
-        0 => Ok("../../data/input/a_example.txt".to_owned()),
-        1 => Ok("../../data/input/b_little_bit_of_everything.txt".to_owned()),
-        2 => Ok("../../data/input/c_many_ingredients.txt".to_owned()),
-        3 => Ok("../../data/input/d_many_pizzas.txt".to_owned()),
-        4 => Ok("../../data/input/e_many_teams.txt".to_owned()),
+        0 => Ok("../data/input/a_example.txt".to_owned()),
+        1 => Ok("../data/input/b_little_bit_of_everything.txt".to_owned()),
+        2 => Ok("../data/input/c_many_ingredients.txt".to_owned()),
+        3 => Ok("../data/input/d_many_pizzas.txt".to_owned()),
+        4 => Ok("../data/input/e_many_teams.txt".to_owned()),
         _ => bail!("Incorrect file number specified."),
     }
 }
@@ -50,7 +50,7 @@ fn parse_input_data(input_data: &Vec<String>) -> Result<(PizzasInput), Box<dyn E
     let t3 = line01.next().unwrap().parse()?;
     let t4 = line01.next().unwrap().parse()?;
 
-    // vector of [pizzaNumber:u32 as string,totalIngredients:i32 as string, ...ingredient names as strings separated]
+    // !vector of [pizzaNumber:u32 as string,totalIngredients:i32 as string, ...ingredient names as strings separated]
     let mut pizzas_ingredients: Vec<Vec<String>> = vec![];
     for index in 1..total_pizzas as usize {
         // leaving out first index as it tells about total pizzas and number of teams
@@ -79,7 +79,7 @@ fn write_output(file_path: &str, pizza_outputs: &PizzasOutput) -> Result<(), Box
     let delivery_details = pizza_outputs.delivery_details.clone();
 
     file.write_all(format!("{}\n", total_deliveries).as_bytes())?;
-    for delivery_number in 0..pizza_outputs.total_deliveries as usize {
+    for delivery_number in 0..delivery_details.len() as usize {
         let pizzas_delivered: Vec<String> = delivery_details[delivery_number]
             .pizza_code_numbers
             .iter()
@@ -95,6 +95,82 @@ fn write_output(file_path: &str, pizza_outputs: &PizzasOutput) -> Result<(), Box
         )?;
     }
     Ok(())
+}
+// ! Finds how many specific teams can be served
+fn teams_to_serve(total_pizzas: u32) -> (u32, u32, u32) {
+    let mut t2teamsthatcanbeserved: u32 = 0;
+    let mut t3teamsthatcanbeserved: u32 = 0;
+    let mut t4teamsthatcanbeserved: u32 = 0;
+    let mut pizzasleft = total_pizzas;
+    if (total_pizzas % 2 == 0) {
+        if (pizzasleft % 4 == 0) {
+            t4teamsthatcanbeserved = (pizzasleft as f64 / 4.0).trunc() as u32;
+            pizzasleft = pizzasleft - (t4teamsthatcanbeserved * 4);
+        }
+        if (pizzasleft % 2 == 0) {
+            t2teamsthatcanbeserved = (pizzasleft as f64 / 2.0).trunc() as u32;
+            pizzasleft = pizzasleft - (t2teamsthatcanbeserved * 2);
+        }
+        println!(
+            "t2teamsthatcanbeserved {} \nt4teamsthatcanbeserved {}\n pizzasleft {}",
+            t2teamsthatcanbeserved, t4teamsthatcanbeserved, pizzasleft
+        );
+    } else {
+        t3teamsthatcanbeserved = t3teamsthatcanbeserved + 1;
+        pizzasleft = pizzasleft - 3; // odd - odd is even
+        if (pizzasleft % 4 == 0) {
+            t4teamsthatcanbeserved = (pizzasleft as f64 / 4.0).trunc() as u32;
+            pizzasleft = pizzasleft - (t4teamsthatcanbeserved * 4);
+        }
+        if (pizzasleft % 2 == 0) {
+            t2teamsthatcanbeserved = (pizzasleft as f64 / 2.0).trunc() as u32;
+            pizzasleft = pizzasleft - (t2teamsthatcanbeserved * 2);
+        }
+        println!(
+            "t2teamsthatcanbeserved {} \nt3teamsthatcanbeserved {} \nt4teamsthatcanbeserved {} \npizzasleft {}",
+            t2teamsthatcanbeserved, t3teamsthatcanbeserved, t4teamsthatcanbeserved, pizzasleft
+        );
+    }
+    (
+        t2teamsthatcanbeserved,
+        t3teamsthatcanbeserved,
+        t4teamsthatcanbeserved,
+    )
+}
+
+// ! Main logic, decides how to distribute pizzas between teams
+fn produce_deliveries(t2_server: u32, t3_server: u32, t4_server: u32) -> Vec<Deliveries> {
+    // !TODO Make a better approach to distribute pizzas
+    let mut start_delivering_pizza_from = 0; // !cleanup
+    let mut delivery_details_vector: Vec<Deliveries> = vec![];
+
+    if t2_server != 0 {
+        let deliveries2 = Deliveries {
+            team_type: 2,
+            pizza_code_numbers: (start_delivering_pizza_from..t2_server * 2).collect(), // !TODO
+        };
+        delivery_details_vector.push(deliveries2);
+    }
+    start_delivering_pizza_from = t2_server * 2;
+
+    if t3_server != 0 {
+        let deliveries3 = Deliveries {
+            team_type: 3,
+            pizza_code_numbers: (start_delivering_pizza_from..t2_server + t3_server * 3 + 1)
+                .collect(), // !TODO
+        };
+        delivery_details_vector.push(deliveries3);
+    }
+
+    start_delivering_pizza_from = t2_server + t3_server * 3 + 1;
+
+    let deliveries4 = Deliveries {
+        team_type: 4,
+        pizza_code_numbers: (start_delivering_pizza_from..t4_server * 4).collect(), // !TODO
+    };
+    delivery_details_vector.push(deliveries4);
+
+    delivery_details_vector
 }
 
 #[derive(Clone, Debug)]
@@ -121,23 +197,22 @@ fn main() {
     let filename = get_filename().unwrap();
     let input_data = read_input(&filename).unwrap();
     let (pizzas_input) = parse_input_data(&input_data).unwrap();
+    let PizzasInput {
+        // !NOTE pizzas_ingredients is vector of [pizzaNumber:u32 as string,totalIngredients:i32 as string, ...ingredient names as strings separated]
+        pizzas_ingredients,
+        t2,
+        t3,
+        t4,
+        total_pizzas,
+    } = &pizzas_input;
 
-    println!("{:?}", pizzas_input);
-
+    let (t2_server, t3_server, t4_server) = teams_to_serve(*total_pizzas);
     // !TODO processing
 
-    // Saving Data
-    let deliveries = Deliveries {
-        team_type: 2,
-        pizza_code_numbers: vec![5, 5],
-    };
-    let deliveries2 = Deliveries {
-        team_type: 3,
-        pizza_code_numbers: vec![5, 5, 9],
-    };
+    // !Saving Data
     let pizzas_output = PizzasOutput {
-        total_deliveries: 2,
-        delivery_details: vec![deliveries, deliveries2],
+        total_deliveries: t2_server + t3_server + t4_server,
+        delivery_details: produce_deliveries(t2_server, t3_server, t4_server), // !WARNING send them as reference if you wann use them after this line
     };
 
     // Output file
